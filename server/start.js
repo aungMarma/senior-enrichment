@@ -3,6 +3,7 @@
 const express = require('express')
 const bodyParser = require('body-parser')
 const {resolve} = require('path')
+const path = require("path");
 
 const app = express()
 
@@ -16,6 +17,7 @@ module.exports = app
   .use(bodyParser.urlencoded({ extended: true }))
   .use(bodyParser.json())
   .use(express.static(resolve(__dirname, '..', 'public'))) // Serve static files from ../public
+  .use(express.static(path.join(__dirname, '..', "node_modules")))   // bootstrap
   .use('/api', require('./api')) // Serve our api
   .get('/*', (_, res) => res.sendFile(resolve(__dirname, '..', 'public', 'index.html'))) // Send index.html for any other requests.
 
@@ -37,9 +39,64 @@ if (module === require.main) {
   const PORT = 1337
 
   const db = require('../db')
-  db.sync()
+  const Student = require("../db/models/students").Student;
+  const Campus = require("../db/models/campuses").Campus
+  db.sync({force : true})
   .then(() => {
-    console.log('db synced')
-    app.listen(PORT, () => console.log(`server listening on port ${PORT}`))
-  });
+    console.log('db synced');
+    // app.listen(PORT, () => console.log(`server listening on port ${PORT}`))
+  })
+  .then( ()=> {
+    return Promise.all([
+        Campus.create({name : "Luna"}),
+        Campus.create({name: "Mars"}),
+        Campus.create({name: "Terra"}),
+        Campus.create({name: "Titan"})
+      ])
+  })
+  .then( (campuses)=> {
+       return Promise.all([
+        Student.create({name : "Gabi", email: "Aung@gmail.com"}),
+        Student.create({name : "Ash", email: "kyaw@gmail.com"}),
+        Student.create({name : "Dan", email: "Dan@gmail.com"}),
+        Student.create({name : "Marvin", email: "Marvin@gmail.com"}),
+        Student.create({name : "Stinky", email: "Strinky@gmail.com"}),
+        Student.create({name : "Stinky", email: "Strinky@gmail.com"}),
+        Student.create({name : "Maru", email: "Maru@gmail.com"}),
+        Student.create({name : "Maro", email: "Maro@gmail.com"}),
+
+    ])
+  })
+  .then( (students)=> {
+
+      return Campus.findAll()
+        .then( campuses=> {
+          return Promise.all([
+          campuses[0].setStudents([students[0], students[1]]),
+          campuses[1].setStudents([students[2], students[3]]),
+          campuses[2].addStudent(students[3]),
+          campuses[3].setStudents([students[4], students[5], students[6], students[7]])
+          ])
+         
+        })
+
+  })
+  .then( result=> {
+       return Campus.findOne(
+         {where : {
+           id : result[0].id
+         },
+         include: [{model : Student}]
+        }
+       )
+
+  })
+  .then( campus1st=> {
+    // campus1st.students.forEach( student=> {
+    //   console.log(student.get());
+    // })
+  })
+  .then( ()=> {
+     app.listen(PORT, () => console.log(`server listening on port ${PORT}`))
+  })
 }
